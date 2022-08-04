@@ -1,6 +1,6 @@
 {
-  "name": "phpu/php-letteravatar",
-  "description": "Generate user avatar using name initials letter. 用用户名生成头像，支持中文。",
+  "name": "anonymhk/avatar",
+  "description": "使用昵称或用户名生成头像，支持中文。",
   "keywords" : [
     "avatar",
     "letteravatar",
@@ -9,9 +9,9 @@
   "license": "Apache-2.0",
   "authors": [
     {
-      "name": "liujiawm",
+      "name": "anonymhk",
       "email": "liujiawm@163.com",
-      "homepage": "https://liujiawm.github.io/"
+      "homepage": "https://anonymhk.github.io/"
     }
   ],
   "require": {
@@ -22,7 +22,7 @@
   },
   "autoload" : {
     "psr-4" : {
-      "phpu\\letteravatar\\" : "src"
+      "anonymhk\\avatar\\" : "src"
     }
   }
 }
