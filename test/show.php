@@ -11,14 +11,14 @@ if(isset($_GET['char']) && $_GET['char'] != null ){
 $outputSize = min(512, empty($_GET['size'])?36:intval($_GET['size']));
 //Demo start
 
-require(dirname(__FILE__) . "/src/Avatar.php");
+require(dirname(__FILE__) . "/src/avatar.php");
 // composer
-// require(__DIR__ . "/vendor/autoload.php");
-
-$avatarImg = new Md\Avatar($char, 2, $outputSize);
+//require(__DIR__ . "/../vendor/autoload.php");
+$flag = $_GET['cache'];
+$avatarImg = new Md\Avatars($flag, $char, 2, $outputSize);
 
 $avatarImg->outputBrowser();
-$avatarImg->save('./avatars/Avatar256.png', 256);
+/*$avatarImg->save('./avatars/Avatar256.png', 256);
 $avatarImg->save('./avatars/Avatar128.png', 128);
-$avatarImg->save('./avatars/Avatar64.png', 64);
+$avatarImg->save('./avatars/Avatar64.png', 64);*/
 $avatarImg->freeAvatar();
