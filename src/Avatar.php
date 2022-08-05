@@ -1,56 +1,55 @@
 <?php
-declare(strict_types=1);
-
-namespace phpu\letteravatar;
-
-use GDText\Box;
-use GDText\Color;
+namespace Md;
 
 class Avatar
 {
-    private $config = [
-        'only-letter' => false, // 是否只用字母
-        'default-userName' => 'wmstudio', // 默认的用户名
-        'size' => [200, 200], // 头像尺寸(px)
-    ];
-
-    private $avatar;
-
     /**
-     * 用户名全名
-     * @var string
+     * 头像资源句柄
      */
-    private $userNameFull = '';
+    private $avatarImg;
+
+    // 头像尺寸(px)
+    private $avatarSize;
 
     /**
      * 头像中字符个数
      * @var int
      */
-    private $initialsLen = 1;
+    private $initialsLen;
+
+    /**
+     * 是否为圆形
+     * @var bool
+     */
+    private $isCircular;
 
     /**
      * 缩略字符
      * @var string
      */
-    private $initials = '';
+    private $initials;
+
+    /**
+     * 是否为字母数字
+     * @var bool
+     */
+    private $isLetter = true;
+
+    private $fontSize = 16;
+
+    private $fontPath;
 
     /**
      * 文字颜色
-     * @var int[]
+     * @var int
      */
-    private $textColor = [0, 10, 18];
+    private $txtColor;
 
     /**
      * 背景色
-     * @var int[]
+     * @var int
      */
-    private $backgroundColor = [79, 91, 98];
-
-    /**
-     * 字体文件路径
-     * @var string
-     */
-    private $fontFile = '';
+    private $bgColor;
 
 
     /**
@@ -79,135 +78,124 @@ class Avatar
     ];
 
     /**
+     * 随机指定长度的字符串
+     */
+    private function randChar($len){
+        $data = 'ABCDEFGHJKLMNPQRSTUVWXYZ12356789';
+        $i = 0;
+        $result = '';
+        while($i < $len){
+            $result .= $data[mt_rand(0,strlen($data) - 1)];
+            $i++;
+        }
+        return $result;
+    }
+
+    /**
      * 构造方法
      * Avatar constructor.
      */
-    public function __construct()
+    public function __construct($nickName, $len = 2, $avatarSize = 200, $isCircular = true)
     {
+        $nickLen = mb_strlen($nickName);
+        if($len > $nickLen){
+            $len = 1;
+        }
+        
+        // 缩略字符个数
+        $this->initialsLen = $len;
+
+        // 缩略字符
+        $this->initials = mb_strtoupper(mb_substr($nickName, 0, $this->initialsLen, "UTF-8"));
+
+        // http://www.dafont.com/pacifico.font
+        $this->fontPath = dirname(__FILE__) . '/../assets/fonts/Roboto-Medium.ttf';
+        // 缩略字符如果超过1位且包含非字母数字，则随机取一个字符串
+        if(!ctype_alnum($this->initials)){            
+            if($this->initialsLen > 1){                
+                //取出值，字符串截取方法 strlen获取字符串长度
+                $this->initials = $this->randChar($this->initialsLen);                
+            }
+            else{
+                //默认是纯数字或字母
+                $this->isLetter = false;
+                $this->fontPath = dirname(__FILE__) . '/../assets/fonts/NotoSansSC-Medium.otf';
+            }
+        }
+
+        // 头像大小
+        $this->avatarSize = $avatarSize;
+
+        // 头像是否圆形
+        $this->isCircular = $isCircular;
+
         // 随机颜色
         $this->randColor();
-    }
 
-    /**
-     * 对象拷贝
-     */
-    public function __clone()
-    {
+        // 生成头像
+        $this->makeAvatar();
     }
-
-    /**
-     * 设置用户名
-     *
-     * @param string $userName
-     * @return $this
-     */
-    public function userName(string $userName):Avatar {
-        $this->setUserName($userName);
-        return $this;
-    }
-
-    /**
-     * 指定头像中截取字符的个数
-     *
-     * @param int $len
-     * @return $this
-     */
-    public function len(int $len):Avatar {
-        $this->setLen($len);
-        return $this;
-    }
-
-    /**
-     * 设置颜色，字符颜色和背景颜色都需要设置，否则随机一组颜色
-     *
-     * @param string|array $textColor 字符颜色，或者是数组[字符颜色,背景颜色]
-     * @param string|null $backgroundColor 背景颜色
-     * @return $this
-     */
-    public function color($textColor, string $backgroundColor = null):Avatar {
-        if (is_array($textColor) && count($textColor) === 2 && is_null($backgroundColor)) {
-            list($textColor, $backgroundColor) = $textColor;
-        }
-        $this->setColor($textColor, $backgroundColor);
-        return $this;
-    }
-
 
     /**
      * 生成头像
-     *
-     * @param string $userName 用户名全名
-     * @param array $color 头像颜色数组[文字颜色,背景颜色]
-     * @param int $len 头像中截取的字符数
-     * @return false|string
      */
-    private function makeAvatar($userName = '', array $color = [], int $len = 0)
-    {
-        if (!empty($userName)) {
-            if (is_int($userName) && $len <= 0) $this->setLen($userName);
-            else if (is_array($userName) && empty($color)) $this->setColor($color[0], $color[1]);
-            else $this->setUserName($userName);
+    private function makeAvatar(){
+        $w = $this->avatarSize;
+        $h = $w;
+        $this->avatarImg = imagecreatetruecolor($w, $h);
+        
+        if(!$this->isCircular){
+            //拾取一个完全透明的颜色,最后一个参数127为全透明
+            $bgAlpha = imagecolorallocatealpha($this->avatarImg, 255, 255, 255, 127);
+            
+            imagefill($this->avatarImg, 0, 0, $bgAlpha);
+            $r = $w / 2; //圆半径
+            //    $y_x = $r; //圆心X坐标
+            //    $y_y = $r; //圆心Y坐标
+            for ($x = 0; $x < $w; $x++) {
+                for ($y = 0; $y < $h; $y++) {
+                    //$rgbColor = imagecolorat($this->avatarImg, $x, $y);
+                    if (((($x - $r) * ($x - $r) + ($y - $r) * ($y - $r)) < ($r * $r))) {
+                        imagesetpixel($this->avatarImg, $x, $y, $bgAlpha);
+                    }
+                }
+            }
         }
-        if ($len > 0) {
-            $this->setLen($len);
-        }
-        if (!empty($color) && count($color) === 2) {
-            $this->setColor($color[0], $color[1]);
-        }
+        else{
+            //画一个居中圆形
+            imagefilledellipse($this->avatarImg,
+                $w / 2,
+                $h / 2,
+                $w,
+                $h,
+                $this->bgColor
+            );
+        }                
 
+        //抗锯齿
+        imageantialias($this->avatarImg, true);
 
-        // 字体所在目录
-        $font_root_path = __DIR__ . DIRECTORY_SEPARATOR . '../assets/fonts';
+        //字体颜色
+        //$fontColor = imagecolorallocate($this->avatarImg, 255, 255, 255);
 
-        // 头像字符
-        $this->generatedInitials();
+        $fontBox = imagettfbbox($this->fontSize, 0, $this->fontPath, $this->initials);//获取文字所需的尺寸大小 
 
-        // 头像最小尺寸 (px)
-        $min_size = min($this->config['size']);
-
-        // 头像
-        $this->avatar = imagecreatetruecolor($this->config['size'][0], $this->config['size'][1]);
-
-        // 背景色
-        $background_color = imagecolorallocate($this->avatar, $this->backgroundColor[0], $this->backgroundColor[1], $this->backgroundColor[2]);
-
-        // 画一个方形并填背景色
-        imagefill($this->avatar, 0, 0, $background_color);
-
-        // 边距
-        $padding = 30 * ($min_size / 256);
-        $font_size = ($min_size - $padding * 2) / $this->initialsLen;
-
-        $fontFile = '';
-        if (!$this->isLetter()) {
-            //中文字体左偏移
-            $boxX = ($font_size / 12) * -1;
-            $boxY = 0;
-            $fontFile = $font_root_path . DIRECTORY_SEPARATOR . 'NotoSansSC-Medium.otf';
-        } else {
-            $boxX = 0;
-            $boxY = 0;
-            $fontFile = $font_root_path . DIRECTORY_SEPARATOR . 'Roboto-Medium.ttf'; // Heebo-Medium.ttf
-        }
-
-        $box = new Box($this->avatar);
-        $box->setFontFace($fontFile); // http://www.dafont.com/pacifico.font
-        $box->setFontSize($font_size);
-        $box->setFontColor(new Color($this->textColor[0], $this->textColor[1], $this->textColor[2]));
-        //$box->setTextShadow(new Color(0, 0, 0, 50), 0, -2);
-        $box->setBox($boxX, $boxY, $this->config['size'][0], $this->config['size'][1]);
-        $box->setTextAlign('center', 'center');
-        $box->draw($this->initials);
-
-        ob_start();
-        imagepng($this->avatar);
-        $printContent = ob_get_clean();
-        ob_end_clean();
-        imagedestroy($this->avatar);
-
-        return $printContent;
+        // 居中算法
+        // ceil((700 - $fontBox[2]) / 2)  宽度
+        // ceil(($height - $fontBox[1] - $fontBox[7]) / 2)  高度
+        $fx = ceil(($this->avatarSize - $fontBox[2]) / 2);
+        // 在圆正中央填入字符
+        imagettftext($this->avatarImg, 
+            $this->fontSize, 
+            0, 
+            $fx,
+            $this->avatarSize, 
+            $this->txtColor, $this->fontPath,  $this->initials
+        );
+        //全透明背景
+        imagesavealpha($this->avatarImg, true);        
     }
-
+    
     /**
      * 销毁头像
      *
@@ -215,118 +203,7 @@ class Avatar
      */
     public function freeAvatar()
     {
-        return imagedestroy($this->avatar);
-    }
-
-    /**
-     * png格式显示头像
-     *
-     * @param string $userName
-     * @param array $color
-     * @param int $len
-     */
-    public function printPng(string $userName = '', array $color = [], int $len = 0)
-    {
-        $printContent = $this->makeAvatar($userName, $color, $len);
-
-        header('Content-Type: image/png');
-        header('Content-Length: ' . strlen($printContent) . '');
-        echo $printContent;
-    }
-
-    /**
-     * 设置用户名
-     * @param string $userName
-     */
-    private function setUserName(string $userName): void
-    {
-        if (false != $userName = $this->validateUserName($userName)) {
-            $this->userNameFull = $userName;
-        } else {
-            $this->userNameFull = $this->config['default-userName'];
-        }
-    }
-
-    /**
-     * 处理并验证用户名
-     * @param string $userName
-     * @return false|string
-     */
-    private function validateUserName(string $userName)
-    {
-        $userName = preg_replace(['/\p{Z}/u', '/\p{N}/u', '/\p{S}/u', '/\p{P}/u', '/\p{C}/u'], '', trim($userName));
-
-        return mb_strlen($userName, 'UTF-8') > 0 ? mb_strtoupper($userName, 'UTF-8') : false;
-    }
-
-    /**
-     * 指定头像中截取字符的个数
-     * @param int $len 截取字符的个数
-     */
-    private function setLen(int $len): void
-    {
-        $max = mb_strlen($this->userNameFull, 'UTF-8');
-        if ($len > $max) {
-            $len = $max;
-        }
-        $this->initialsLen = $len;
-    }
-
-    /**
-     * 缩略字符
-     *
-     * @return string
-     */
-    private function generatedInitials()
-    {
-        return $this->initials = mb_substr($this->userNameFull, 0, $this->initialsLen, 'UTF-8');
-    }
-
-    /**
-     * 是否为字母
-     * @return false|int
-     */
-    private function isLetter()
-    {
-        return preg_match('/[a-zA-Z]/', $this->initials);
-    }
-
-    /**
-     * 设置颜色，字符颜色和背景颜色都需要设置，否则随机一组颜色
-     *
-     * @param string $textColor 16进制颜色值
-     * @param string $backgroundColor 16进制颜色值
-     */
-    private function setColor(string $textColor, string $backgroundColor): void
-    {
-
-        $e = false;
-
-        if (empty($textColor) || empty($backgroundColor)) {
-            $e = true;
-        } else {
-            if (strpos($textColor, '#') === 0
-                && (strlen($textColor) === 7 || strlen($textColor) === 4)) {
-                $this->textColor = self::hex2rgb($textColor);
-            } else if (substr_count($textColor, ',') === 2) {
-                $this->textColor = explode(',', $textColor);
-            } else {
-                $e = true;
-            }
-
-            if (strpos($backgroundColor, '#') === 0
-                && (strlen($backgroundColor) === 7 || strlen($backgroundColor) === 4)) {
-                $this->backgroundColor = self::hex2rgb($backgroundColor);
-            } else if (substr_count($backgroundColor, ',') === 2) {
-                $this->backgroundColor = explode(',', $backgroundColor);
-            } else {
-                $e = true;
-            }
-        }
-
-        if ($e) {
-            $this->randColor();
-        }
+        return imagedestroy($this->avatarImg);
     }
 
     /**
@@ -340,28 +217,79 @@ class Avatar
 
         $ii = mt_rand(0, 9) % 2;
         if ($ii === 0) {
-            $this->textColor = $color[0];
-            $this->backgroundColor = $color[1];
+            $this->txtColor = imagecolorallocate($this->avatarImg, $color[0][0], $color[0][1], $color[0][2]);
+            $this->bgColor = imagecolorallocate($this->avatarImg, $color[1][0], $color[1][1], $color[1][2]);
         } else {
-            $this->textColor = $color[1];
-            $this->backgroundColor = $color[0];
+            $this->txtColor = imagecolorallocate($this->avatarImg, $color[1][0], $color[1][1], $color[1][2]);
+            $this->bgColor = imagecolorallocate($this->avatarImg, $color[0][0], $color[0][1], $color[0][2]);
+        }
+    }
+
+    private function resize($targetSize)
+    {
+        if (!isset($this->avatarImg)) {
+            return false;
+        }
+        if ($this->avatarSize > $targetSize) {
+            $percent         = $targetSize / $this->avatarSize;
+            $targetWidth     = round($this->avatarSize * $percent);
+            $targetHeight    = round($this->avatarSize * $percent);
+            $targetImageData = imagecreatetruecolor($targetWidth, $targetHeight);
+            //全透明背景
+            imagesaveAlpha($targetImageData, true);
+            $bgAlpha = imagecolorallocatealpha($targetImageData, 255, 255, 255, 127);
+            //抗锯齿
+            imageantialias($targetImageData, true);
+
+            $r = $targetSize / 2; //圆半径
+            //    $y_x = $r; //圆心X坐标
+            //    $y_y = $r; //圆心Y坐标
+            for ($x = 0; $x < $targetWidth; $x++) {
+                for ($y = 0; $y < $targetHeight; $y++) {
+                    //$rgbColor = imagecolorat($this->avatarImg, $x, $y);
+                    if (((($x - $r) * ($x - $r) + ($y - $r) * ($y - $r)) < ($r * $r))) {
+                        imagesetpixel($targetImageData, $x, $y, $bgAlpha);
+                    }
+                }
+            }                
+
+            imagefill($targetImageData, 0, 0, $bgAlpha);
+            imagecopyresampled($targetImageData, $this->avatarImg, 0, 0, 0, 0, $targetWidth, $targetHeight, $this->avatarSize, $this->avatarSize);
+            return $targetImageData;
+        } else {
+            return $this->avatarImg;
         }
     }
 
     /**
-     * 将十六进制的颜色代码转为RGB
-     * @param string $hexColor 十六进制颜色代码
-     * @return int[] RGB颜色数组[r,g,b]
+     * png格式显示头像
+     *
      */
-    protected static function hex2rgb(string $hexColor)
+    public function outputBrowser()
     {
-        if ($hexColor[0] == '#') $hexColor = substr($hexColor, 1);
-        $hexColor = preg_replace("/[^0-9A-Fa-f]/", '', $hexColor);
-        if (strlen($hexColor) == 3) {
-            $hexColor = $hexColor[0] . $hexColor[0] . $hexColor[1] . $hexColor[1] . $hexColor[2] . $hexColor[2];
-        }
-        $int = hexdec($hexColor);
-        return [0xFF & ($int >> 0x10), 0xFF & ($int >> 0x8), 0xFF & $int];
+        header('Content-Type: image/png');
+        imagepng($this->avatarImg);
     }
 
+    /**
+     * 输出Base64格式图像
+     *
+     */
+    public function outputBase64()
+    {
+        $printContent = 'data:image/png;base64,' .base64_encode($this->avatarImg);
+        header('Content-Type: image/png');
+        echo $printContent;
+    }
+
+    /**
+     * 保存头像
+     */
+    public function save($path, $avatarSize = 0)
+    {
+        if (!$avatarSize) {
+            $avatarSize = $this->avatarSize;
+        }
+        return imagepng($this->resize($avatarSize), $path);
+    }
 }
