@@ -90,9 +90,8 @@ class Avatars
      * 构造方法
      * Avatar constructor.
      */
-    public function __construct($flag, $nickName, $len = 2, $avatarSize = 200, $isCircular = true)
+    public function __construct($nickName, $len = 2, $avatarSize = 200)
     {
-        $this->flag = $flag;
         $nickLen = mb_strlen($nickName);
         if($len > $nickLen){
             $len = 1;
@@ -103,9 +102,6 @@ class Avatars
 
         // 头像大小
         $this->avatarSize = $avatarSize;
-
-        // 头像是否圆形
-        $this->isCircular = $isCircular;
 
         // 缩略字符
         $this->initials = mb_strtoupper(mb_substr($nickName, 0, $this->initialsLen, "UTF-8"));
@@ -254,12 +250,22 @@ class Avatars
 
     /**
      * 保存头像
+     * @param string $path  要保存的文件夹
+     * @param string $fileName  文件名
+     * @param int $avatarSize  头像大小
+     * @return bool
      */
-    public function save($path, $avatarSize = 0)
+    public function save($path, $fileName, $avatarSize = 0)
     {
         if (!$avatarSize) {
             $avatarSize = $this->avatarSize;
         }
-        return imagepng($this->resize($avatarSize), $path);
+        if(!is_dir($path)){
+            $makeStatus = mkdir($path, 0777, true);
+            if(!$makeStatus){
+                return false;
+            }
+        }
+        return imagepng($this->resize($avatarSize), $path.$fileName);
     }
 }
